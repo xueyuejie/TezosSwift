@@ -221,3 +221,229 @@ if let validAddress = address {
 ## License
 
 MIT License
+
+---
+
+# TezosSwift 中文文档
+
+一个全面的 Tezos 区块链交互 Swift 库，提供钱包管理、RPC 通信和交易操作功能。
+
+## 功能特性
+
+- **钱包管理**：支持 BIP39 助记词的密钥对生成
+- **RPC 提供者**：完整的 Tezos JSON-RPC API 客户端
+- **交易操作**：创建、模拟和发送 Tezos 操作
+- **费用估算**：自动交易手续费计算
+- **代币支持**：FA1.2 和 FA2 代币操作
+- **NFT 支持**：Tezos NFT 获取和管理
+
+## 系统要求
+
+- Swift 5.5+
+- iOS 13.0+ / macOS 10.15+
+
+## 安装方式
+
+### Swift Package Manager
+
+在 `Package.swift` 中添加依赖：
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/xueyuejie/TezosSwift.git", from: "1.0.0")
+]
+```
+
+## 使用示例
+
+### 密钥对生成
+
+```swift
+import TezosSwift
+
+// 生成随机密钥对
+let keyPair = try TezosKeypair.randomKeyPair()
+
+// 从助记词创建并指定派生路径
+let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+let keyPair = try TezosKeypair(mnemonics: mnemonic, path: "m/44'/1729'/0'/0'")
+
+// 从私钥创建
+let keyPair = try TezosKeypair(privateKey: "edsk...")
+
+// 访问密钥
+print(keyPair.address.address)  // tz1...
+print(keyPair.privateKey)       // edsk...
+print(keyPair.publicKey.hex)    // 公钥字节
+```
+
+### RPC 提供者
+
+```swift
+import TezosSwift
+
+// 初始化 RPC 提供者
+let provider = TezosRpcProvider(nodeUrl: "https://mainnet.smartpy.io")
+
+// 获取余额
+let balance = try await provider.getXTZBalance(address: "tz1...")
+
+// 获取链 ID
+let chainId = try await provider.getChainID()
+
+// 获取区块头
+let blockHead = try await provider.getBlocksHead()
+
+// 获取账户计数器
+let counter = try await provider.getCounter(address: "tz1...")
+
+// 获取管理密钥
+let managerKey = try await provider.getManagerKey(address: "tz1...")
+```
+
+### 代币操作
+
+```swift
+import TezosSwift
+
+// 获取 FA1.2 代币余额
+let fa12Balance = try await provider.getFa1_2TokenBalancee(
+    address: "tz1...",
+    mint: "KT1...", // 代币合约
+    chainId: "NetXdQpr9Vk9Aw"
+)
+
+// 获取 FA2 代币余额
+let fa2Balance = try await provider.getFa2TokenBalancee(
+    address: "tz1...",
+    contract: "KT1...", // 代币合约
+    tokenId: "0",
+    chainId: "NetXdQpr9Vk9Aw"
+)
+```
+
+### NFT 操作
+
+```swift
+import TezosSwift
+
+// 获取地址的 NFT
+let nfts = try await provider.getNfts(address: "tz1...")
+
+// NFT 结果包含
+// - image: NFT 图片 URL
+// - description: NFT 描述
+// - name: NFT 名称
+```
+
+### 交易构建
+
+```swift
+import TezosSwift
+
+// 获取区块链元数据
+let metadata = try await provider.getMetadata(address: "tz1...")
+
+// 创建交易
+let transaction = TezosTransaction(
+    branch: metadata.blockHash,
+    metadata: metadata
+)
+
+// 添加交易操作
+let operation = TransactionOperation(
+    source: keyPair.address.address,
+    destination: "tz1...",
+    amount: "1000000", // 金额单位 mutez
+    counter: "\(metadata.counter)",
+    fee: "0",
+    gas_limit: "0",
+    storage_limit: "0"
+)
+transaction.operations.append(operation)
+```
+
+### 交易模拟
+
+```swift
+import TezosSwift
+
+// 获取模拟响应
+let simulation = try await provider.getSimulationResponse(
+    operations: transaction.operations,
+    headHash: "head",
+    metadata: metadata
+)
+
+// 预应用交易
+let preappliedTx = try await provider.preapplyTransaction(transaction: transaction)
+```
+
+### 签名与发送
+
+```swift
+import TezosSwift
+
+// 签名交易
+let messageDigest = try transaction.forge()
+let signature = try keyPair.signDigest(messageDigest: messageDigest)
+
+// 发送已签名交易
+let txHash = try await provider.sendTransaction(transaction: transaction)
+print("交易哈希: \(txHash)")
+```
+
+### 网络常量
+
+```swift
+import TezosSwift
+
+// 获取网络常量
+let constants = try await provider.getConstants()
+
+// 常量包含
+// - hard_gas_limit_per_operation
+// - hard_gas_limit_per_block
+// - cost_per_byte
+// - cost_per_bit
+```
+
+## 地址格式
+
+```swift
+import TezosSwift
+
+// Tezos 地址前缀：tz1（Ed25519 公钥哈希）
+// 私钥前缀：edsk
+// 签名前缀：edsig, sig
+
+// 验证地址
+let address = TezosAddress("tz1...")
+if let validAddress = address {
+    print(validAddress.address)
+}
+```
+
+## 依赖库
+
+- **Base58Swift**: Base58Check 编解码
+- **Blake2**: 哈希函数
+- **BIP39swift**: 助记词生成
+- **PromiseKit**: 基于 Promise 的异步操作
+- **TweetNacl**: Ed25519 签名
+- **BigInt**: 任意精度整数
+
+## RPC 节点
+
+```swift
+// 主网
+"https://mainnet.smartpy.io"
+"https://rpc.tzbeta.net"
+
+// 测试网（Hangzhounet）
+"https://hangzhou.smartpy.io"
+```
+
+## 许可证
+
+MIT License
